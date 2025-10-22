@@ -1,151 +1,85 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+from dataclasses import asdict
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+from arbitrage.config import AppSettings
+from arbitrage.runner import scan_once
+
+
+st.set_page_config(page_title="Arbitrage Scanner", page_icon=":money_with_wings:")
+
+st.title(":money_with_wings: Arbitrage Opportunity Scanner")
+st.caption("Cross-exchange and triangular scanner using CCXT")
+
+st.sidebar.header("Configuration")
+default = AppSettings()
+
+exchanges = st.sidebar.multiselect(
+    "Exchanges (ccxt ids)",
+    options=["binance", "kucoin", "bybit", "okx", "gate", "htx"],
+    default=default.exchanges,
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+symbols_str = st.sidebar.text_input(
+    "Symbols (comma-separated)",
+    value=",".join(default.symbols),
+    help="e.g., BTC/USDT,ETH/USDT",
+)
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+amount_quote = st.sidebar.number_input(
+    "Quote amount per trade (e.g., USDT)", min_value=10.0, max_value=200000.0, value=float(default.amount_quote), step=10.0
+)
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+min_profit_pct = st.sidebar.slider(
+    "Minimum profit (%)",
+    min_value=0.0,
+    max_value=5.0,
+    value=default.min_profit_pct * 100,
+    step=0.05,
+)
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+include_triangular = st.sidebar.checkbox("Include triangular opportunities", value=default.include_triangular)
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+run_btn = st.sidebar.button("Scan now")
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
+if run_btn:
+    settings = AppSettings(
+        exchanges=exchanges,
+        symbols=[s.strip().upper() for s in symbols_str.split(",") if s.strip()],
+        amount_quote=float(amount_quote),
+        min_profit_pct=min_profit_pct / 100.0,
+        include_triangular=include_triangular,
     )
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    with st.status("Scanning exchanges...", expanded=True) as status:
+        st.write(f"Exchanges: {', '.join(settings.exchanges)}")
+        st.write(f"Symbols: {', '.join(settings.symbols)} | Amount: {settings.amount_quote}")
+        try:
+            ops = scan_once(settings)
+            status.update(label="Scan complete", state="complete")
+        except Exception as e:
+            status.update(label="Scan failed", state="error")
+            st.exception(e)
+            ops = []
 
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+    if ops:
+        df = pd.DataFrame([
+            {
+                "type": o.kind,
+                "symbol": o.symbol,
+                "buy_exchange": o.buy_exchange,
+                "sell_exchange": o.sell_exchange,
+                "profit_%": round(o.profit_pct * 100, 3),
+                "profit_abs": round(o.profit_abs_quote, 4),
+                "amount_quote": round(o.amount_quote, 4),
+                "buy_price": round(o.effective_buy_price or 0, 8),
+                "sell_price": round(o.effective_sell_price or 0, 8),
+                "path": " -> ".join([f"{s}:{side}" for s, side in (o.path or [])]) if o.path else "",
+            }
+            for o in ops
+        ])
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("No opportunities found with current settings.")
+else:
+    st.info("Configure settings in the sidebar and click 'Scan now'.")
