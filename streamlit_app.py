@@ -1,151 +1,147 @@
+import asyncio
+from typing import Dict, List
+
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
+from loguru import logger
 
-# Set the title and favicon that appear in the Browser's tab bar.
+from arbitrage.engine import scan_once
+from arbitrage.models import FeeModel, ScanConfig
+
+# Optimize asyncio loop for Linux
+try:
+    import uvloop  # type: ignore
+    uvloop.install()
+except Exception:
+    pass
+
+
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="آربیتراژ یار حرفه‌ای",
+    page_icon=":money_with_wings:",
+    layout="wide",
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+@st.cache_resource
+def get_default_exchanges() -> List[str]:
+    # A conservative default set; some exchanges may be geo/region restricted
+    return [
+        "binance",
+        "kraken",
+        "kucoin",
+        "bybit",
+        "okx",
+    ]
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
+
+@st.cache_resource
+def get_default_pairs() -> List[str]:
+    return [
+        "BTC/USDT",
+        "ETH/USDT",
+        "SOL/USDT",
+        "XRP/USDT",
+        "ETH/BTC",
+    ]
+
+
+st.markdown(
     """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
+    # آربیتراژ یار حرفه‌ای
+    موتور هوشمند کشف فرصت‌های آربیتراژ بین صرافی‌ها و داخل هر صرافی.
+    """
 )
 
-''
-''
+with st.sidebar:
+    st.header("پیکربندی")
+    exchanges = st.multiselect("صرافی‌ها", options=get_default_exchanges(), default=get_default_exchanges())
+    pairs = st.multiselect("نمادها (Symbols)", options=get_default_pairs(), default=get_default_pairs())
+    slippage_bps = st.slider("اسلیپیج (bps)", 0, 100, 10, step=5)
+    taker_fee_bps = st.slider("کارمزد تیکر عمومی (bps)", 0, 50, 10, step=5)
+    auto_refresh = st.toggle("اسکن خودکار هر ۳۰ ثانیه")
+    if auto_refresh:
+        st.autorefresh(interval=30_000, key="auto_refresh")
 
+fee_overrides: Dict[str, FeeModel] = {ex: FeeModel(taker_fee_rate=taker_fee_bps / 10_000.0) for ex in exchanges}
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+st.divider()
 
-st.header(f'GDP in {to_year}', divider='gray')
+cols = st.columns([1, 1])
+scan_clicked = cols[0].button("اسکن کن", use_container_width=True)
+reset_clicked = cols[1].button("پاک‌سازی نتایج", use_container_width=True)
 
-''
+if reset_clicked:
+    st.session_state.pop("last_results", None)
 
-cols = st.columns(4)
+should_scan = scan_clicked or auto_refresh
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
+if should_scan and exchanges and pairs:
+    with st.spinner("در حال اسکن همزمان بازارها..."):
+        cfg = ScanConfig(
+            exchange_ids=exchanges,
+            symbols=pairs,
+            fee_overrides=fee_overrides,
+            max_concurrency=10,
+            request_timeout_ms=12_000,
+            retries=1,
+            slippage_bps=slippage_bps,
         )
+        try:
+            cross, tri = asyncio.run(scan_once(cfg))
+            st.session_state["last_results"] = {"cross": cross, "tri": tri}
+        except Exception as e:
+            st.error(f"خطا در اسکن: {e}")
+
+results = st.session_state.get("last_results")
+
+if results:
+    cross = results.get("cross", [])
+    tri = results.get("tri", {})
+
+    st.subheader("فرصت‌های بین صرافی (Cross-Exchange)")
+    if not cross:
+        st.info("فعلا فرصتی یافت نشد.")
+    else:
+        import pandas as pd
+
+        df = pd.DataFrame([
+            {
+                "نماد": o.symbol,
+                "صرافی خرید": o.buy_exchange,
+                "قیمت خرید": o.buy_price,
+                "صرافی فروش": o.sell_exchange,
+                "قیمت فروش": o.sell_price,
+                "اسپرد ناخالص %": round(o.gross_spread_pct, 3),
+                "اسپرد خالص %": round(o.est_net_spread_pct, 3),
+                "سود خالص به ازای هر واحد": round(o.est_net_profit_per_unit, 6),
+            }
+            for o in cross
+        ])
+        st.dataframe(df, use_container_width=True)
+
+    st.subheader("فرصت‌های مثلثی داخل صرافی (Triangular)")
+    empty = True
+    for ex_id, opps in tri.items():
+        if not opps:
+            continue
+        empty = False
+        with st.expander(f"{ex_id}"):
+            import pandas as pd
+
+            df = pd.DataFrame([
+                {
+                    "مسیر": " -> ".join(o.path),
+                    "ضریب ناخالص": round(o.gross_multiplier, 6),
+                    "ضریب خالص": round(o.est_net_multiplier, 6),
+                    "دارایی مبنا": o.base_asset,
+                }
+                for o in opps
+            ])
+            st.dataframe(df, use_container_width=True)
+    if empty:
+        st.info("فرصت مثلثی قابل نمایش پیدا نشد.")
+
+st.caption(
+    "هشدار: این ابزار صرفا جهت تحلیل و کشف فرصت‌ها است و اجرای معامله و انتقال بین صرافی‌ها را انجام نمی‌دهد. ریسک‌ها (کارمزد برداشت/واریز، تأخیر شبکه، محدودیت برداشت، KYC و ...) را قبل از هر اقدامی بسنجید."
+)
+
