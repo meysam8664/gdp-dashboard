@@ -1,0 +1,97 @@
+{
+  "exchanges": {
+    "binance": {
+      "api_key": "",
+      "secret": "",
+      "sandbox": true,
+      "rate_limit": 1200,
+      "timeout": 30000,
+      "enable_rate_limit": true
+    },
+    "coinbase": {
+      "api_key": "",
+      "secret": "",
+      "sandbox": true,
+      "rate_limit": 1000,
+      "timeout": 30000,
+      "enable_rate_limit": true
+    },
+    "kraken": {
+      "api_key": "",
+      "secret": "",
+      "sandbox": true,
+      "rate_limit": 3000,
+      "timeout": 30000,
+      "enable_rate_limit": true
+    },
+    "kucoin": {
+      "api_key": "",
+      "secret": "",
+      "sandbox": true,
+      "rate_limit": 1200,
+      "timeout": 30000,
+      "enable_rate_limit": true
+    },
+    "huobi": {
+      "api_key": "",
+      "secret": "",
+      "sandbox": true,
+      "rate_limit": 1000,
+      "timeout": 30000,
+      "enable_rate_limit": true
+    }
+  },
+  "arbitrage": {
+    "min_profit_percentage": 0.5,
+    "max_risk_score": 0.7,
+    "min_volume": 1000,
+    "max_execution_time": 30,
+    "update_interval": 5,
+    "max_opportunities_per_scan": 50,
+    "confidence_threshold": 0.6
+  },
+  "notifications": {
+    "enabled": true,
+    "telegram": {
+      "bot_token": "",
+      "chat_id": ""
+    },
+    "discord": {
+      "webhook_url": ""
+    },
+    "email": {
+      "smtp_server": "",
+      "smtp_port": 587,
+      "username": "",
+      "password": "",
+      "to_email": ""
+    }
+  },
+  "database": {
+    "type": "sqlite",
+    "path": "arbitrage.db",
+    "backup_interval": 3600
+  },
+  "monitoring": {
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT", 
+      "BNB/USDT",
+      "ADA/USDT",
+      "SOL/USDT",
+      "DOT/USDT",
+      "LINK/USDT",
+      "UNI/USDT",
+      "LTC/USDT",
+      "BCH/USDT"
+    ],
+    "scan_interval": 5,
+    "max_concurrent_scans": 3
+  },
+  "risk_management": {
+    "max_position_size": 10000,
+    "stop_loss_percentage": 5.0,
+    "max_daily_loss": 1000,
+    "position_timeout": 300
+  }
+}
