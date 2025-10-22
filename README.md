@@ -1,19 +1,31 @@
-# :earth_americas: GDP dashboard template
+## آربیتراژ یار حرفه‌ای (Streamlit)
 
-A simple Streamlit app showing the GDP of different countries in the world.
+یک داشبورد Streamlit برای کشف فرصت‌های آربیتراژ بین صرافی‌ها (Cross-Exchange) و آربیتراژ مثلثی داخل صرافی‌ها.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gdp-dashboard-template.streamlit.app/)
+### امکانات
+- کشف همزمان قیمت‌ها با CCXT (غیرهمزمان/async)
+- محاسبه اسپرد ناخالص و خالص با درنظرگرفتن کارمزد و اسلیپیج
+- اسکن فرصت‌های مثلثی ساده
+- رابط کاربری فارسی با گزینهٔ اسکن خودکار
 
-### How to run it on your own machine
+### پیش‌نیاز
+- Python 3.11 یا بالاتر
 
-1. Install the requirements
+### نصب
 
-   ```
-   $ pip install -r requirements.txt
-   ```
+```bash
+python3 -m pip install -r requirements.txt
+```
 
-2. Run the app
+### اجرا
 
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+```bash
+streamlit run streamlit_app.py
+```
+
+سپس در مرورگر به آدرس نشان داده شده مراجعه کنید.
+
+### نکته‌های مهم
+- این ابزار فقط تحلیل و کشف فرصت انجام می‌دهد؛ اجرای معامله/انتقال انجام نمی‌دهد.
+- برای برخی صرافی‌ها نیاز به IP مجاز، KYC یا محدودیت منطقه‌ای است.
+- نتایج به قیمت‌های لحظه‌ای و محدودیت‌های حجم/دفتر سفارش حساس هستند.
