@@ -4,6 +4,24 @@
 
 A professional, intelligent arbitrage detection system for finding opportunities across multiple exchanges and platforms.
 
+## 🎉 Two Versions Available
+
+### 1️⃣ **Basic Version** (`streamlit_app.py`)
+- Simple, easy to use
+- Real-time opportunity detection
+- Perfect for beginners
+- No complex setup required
+
+### 2️⃣ **Advanced Version** (`streamlit_app_advanced.py`) - **NEW!**
+- All basic features PLUS:
+- 🔄 Real exchange integration (CCXT)
+- 🗄️ Historical database storage
+- 🔔 Multi-channel notifications (Telegram, Email, Discord)
+- 📈 Backtesting engine
+- 🤖 AI-powered analytics and predictions
+- 💾 Multi-format export (CSV, Excel, JSON)
+- 📊 Advanced statistics and reporting
+
 ## 🚀 Features
 
 ### Core Capabilities
@@ -47,12 +65,27 @@ cd workspace
 
 2. Install dependencies:
 ```bash
+# Basic version
 pip install -r requirements.txt
+
+# Advanced version (includes CCXT and extra features)
+pip install -r requirements.txt
+pip install ccxt  # For real exchange integration
 ```
 
 3. Run the application:
 ```bash
+# Basic version - Simple and fast
 streamlit run streamlit_app.py
+
+# Advanced version - Full-featured
+streamlit run streamlit_app_advanced.py
+```
+
+4. (Optional) Configure advanced features:
+```bash
+cp .env.example .env
+# Edit .env with your settings (API keys, notifications, etc.)
 ```
 
 ## 📖 Usage
@@ -203,16 +236,33 @@ python -m pytest tests/
 - Real-time updates
 - Interactive charts and analytics
 
-## 🔮 Roadmap
+## ✅ Advanced Features (Available Now!)
 
-- [ ] Live exchange API integration (CCXT)
-- [ ] Statistical arbitrage with ML models
-- [ ] Automated trade execution
-- [ ] Portfolio tracking
-- [ ] Telegram/Discord notifications
-- [ ] Mobile app support
-- [ ] Advanced backtesting
+All these features are now implemented in the advanced version:
+
+- [x] **Live exchange API integration (CCXT)** - Connect to 100+ real exchanges
+- [x] **Historical database** - SQLite storage for all opportunities
+- [x] **Multi-channel notifications** - Telegram, Email, Discord, Webhooks
+- [x] **Advanced backtesting** - Test strategies on historical data
+- [x] **AI-powered analytics** - ML-based predictions and recommendations
+- [x] **Multi-format export** - CSV, Excel, JSON, Reports
+- [x] **Advanced statistics** - Comprehensive analytics dashboard
+- [x] **Parameter optimization** - Find best trading parameters
+- [x] **Trend detection** - Identify market trends
+- [x] **Exchange health monitoring** - Track exchange performance
+
+See [ADVANCED_FEATURES.md](ADVANCED_FEATURES.md) for complete documentation.
+
+## 🔮 Future Roadmap
+
+- [ ] Real-time WebSocket feeds
+- [ ] Automated trade execution with safety limits
+- [ ] Portfolio tracking and management
+- [ ] Mobile app (iOS/Android)
+- [ ] Advanced ML models (LSTM, Transformer)
 - [ ] Multi-asset correlation analysis
+- [ ] Social trading features
+- [ ] Cloud deployment options
 
 ## 🤝 Contributing
 
